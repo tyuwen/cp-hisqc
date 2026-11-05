@@ -1,0 +1,489 @@
+/* cp-hisqc_unenh_ty_800_cp
+
+   cross-polarization assisted hisqc (15N,1H) written by TY and NRS.
+
+   - Min phase cycle is 2
+
+   REF: Yuwen et al. JBNMR 58, 175 (2014)
+
+   Modified based on cp-hisqcf3gpph19 with syntax adapted to new scheme
+     by TY on Sept 10, 2019
+
+   Updated by TY on Nov 4, 2026
+
+*/
+
+prosol relations=<triple>
+
+#include <Avance.incl>
+#include <Grad.incl>
+#include <Delay.incl>
+
+/***********************/
+/*   Define phases     */
+/***********************/
+#define zero ph=0.0
+#define one ph=90.0
+#define two ph=180.0
+#define three ph=270.0
+
+/************************/
+/*   Define pulses      */
+/************************/
+define pulse dly_pg1     /* Messerle purge pulse*/
+  "dly_pg1=5m"
+
+define pulse dly_pg2     /* Messerle purge pulse*/
+  "dly_pg2=dly_pg1/1.62"
+
+define pulse pwh
+  "pwh=p1"               /* 1H hard pulse at power level pl1 (tpwr) */
+
+#ifdef c_flg
+  define pulse pwc_ad
+    "pwc_ad=p8"          /* PW180 for adiabatic pulse at spw13 (dpwr_ad) */
+#endif
+
+define pulse pw_sl
+  "pw_sl=p11"            /* pw for selective pulse at sp1/sp11 */
+
+define pulse pwh_cpd
+  "pwh_cpd=p17"
+
+define pulse pw_dip
+  "pw_dip=p18"
+
+define pulse pwn
+  "pwn=p21"              /* PW90 for N pulse at power level pl3 (dhpwr2)  */
+
+#ifdef N_sel
+  define pulse pwn_sl
+    "pwn_sl=p32"
+#endif
+
+/************************/
+/*   Define delays      */
+/************************/
+define delay hscuba      /* length of 1/2 scuba delay */
+  "hscuba=25m"
+
+define delay taua        /* < 1 / 4J(XH) */
+  "taua=d25"
+
+define delay taub        /* = 1 / 4J(XH) */
+  "taub=d26"
+
+define delay tau_hetcp
+  "tau_hetcp=pw_dip*(2590.0/90.0)*l6"
+
+"d11=30m"
+"d12=4u"
+"d19=abs(1.0/(4.0*(bf1*(cnst1/1e6)-o1)))"
+"in0=inf1/2"
+"TAU2=0.2u"
+
+define delay t1_max
+
+define loopcounter ni
+; "ni=td1/2"
+
+#ifdef N_sel
+  "DELTA3=taub-2u-pwh_cpd-4u-2u-p19-d16-pwn_sl*0.475-pwn*2.0/PI"
+  "DELTA4=taub-4u-2u-p19-d16-pwn_sl*0.475-pwn*2.0/PI"
+#else
+  "DELTA3=taub-2u-pwh_cpd-4u-2u-p19-d16-pwn*4.0/PI"
+  "DELTA4=taub-4u-2u-p19-d16-pwn*4.0/PI"
+#endif
+
+#ifdef wgate2_flg
+  "DELTA5=taua-2u-p29-d16-d19*3.367-pwh*2.0/PI"
+  "DELTA6=taua-2u-p29-d16-d19*3.367-4u-4u-de"
+#else
+  "DELTA5=taua-2u-p29-d16-4u-pw_sl-4u-pwh*2.0/PI"
+  "DELTA6=taua-4u-pw_sl-4u-2u-p29-d16-4u-4u-de"
+#endif
+
+#ifdef water
+  "DELTA11=aq"
+  "DELTA12=larger(d61-2u-p16-d16-50u-4u,TAU2)"
+
+  define pulse pwh_tap
+    "pwh_tap=p1*cnst61/90"
+#endif
+
+/*****************************************************************/
+/* f1180: Start t1 at half dwell to get -90/180 phase correction */
+/*        in F1 (15N) dim - set zgoptns -Df1180                  */
+/*****************************************************************/
+#ifdef f1180
+  "d0=(in0/2)"
+#else
+  "d0=(0.2u/2)"
+#endif
+
+/******************************************************/
+/* Assign cnsts to check validity of parameter ranges */
+/******************************************************/
+#ifndef wgate2_flg
+  "spoal1=0"
+  "spoffs1=0"
+#endif
+
+"spoal11=1"
+"spoffs11=0"
+
+#ifdef c_flg
+  "spoal13=0.5"
+  "spoffs13=0"
+#endif
+
+"cnst16=plw16"
+"plw18=plw1*pow(p1/p18,2)"
+"plw19=plw1*pow(p1/p17,2)"
+"plw36=plw3*pow(p21/p18,2)"
+
+#ifdef N_sel
+  "spw32=plw3*pow((p21*2.0/p32)/0.07981016,2)"
+  "cnst32=spw32"
+  "spoal32=0.5"
+#endif
+
+"acqt0=0"
+baseopt_echo
+
+/*******************************/
+/* BEGIN ACTUAL PULSE SEQUENCE */
+/*******************************/
+1 ze
+/**************************************/
+/* Check validity of parameters range */
+/**************************************/
+  if "p17 < 25u" {
+    2u
+    print "error: p17 for 1H decoupling during t1 too short; > 25us !!!"
+    goto HaltAcqu
+  }
+
+  if "p18 < 30u" {
+    2u
+    print "error: p18 for het-cp transfer too short; > 30us !!!"
+    goto HaltAcqu
+  }
+
+  if "l6%2 != 0" {
+    2u
+    print "error: l6 should be set as an even number !!!"
+    goto HaltAcqu
+  }
+
+  if "tau_hetcp > 15m" {
+    2u
+    print "error: dipsi-2 het-cp duration too long; < 15ms !!!"
+    goto HaltAcqu
+  }
+
+#ifdef N_sel
+  if "cnst32 > 200" {
+    2u
+    print "error: dpwr2_sl sp32 too large; < 200W !!!"
+    goto HaltAcqu
+  }
+#endif
+
+  if "d1 < 1.0s" {
+    2u
+    print "error: d1 too short; > 1.0s !!!"
+    goto HaltAcqu
+  }
+
+  if "aq > 100m && cnst16 > 0" {
+    2u
+    print "error: aq too long; < 100ms !!!"
+    goto HaltAcqu
+  }
+
+2 d11 do:f3
+  2u rpp11 rpp12
+
+/***********************************************/
+/* Presaturation Period                        */
+/* option for Messerle purge zgoptn -Dmess_flg */
+/***********************************************/
+#ifdef mess_flg
+  4u pl10:f1
+  (dly_pg1 ph26):f1
+  2u
+  (dly_pg2 ph27):f1
+#endif
+
+#ifdef fsat
+  4u pl9:f1
+  d1 cw:f1 ph26
+  2u do:f1
+  4u pl1:f1
+#ifdef fscuba
+  hscuba
+  (pwh ph26 pwh*2.0 ph27 pwh ph26):f1
+  hscuba
+#endif /*fscuba*/
+#else /*fsat*/
+  4u pl1:f1
+  d1
+#endif /*fsat*/
+
+/**********************************************/
+/* Eliminate equilibrium magnetization on 15N */
+/**********************************************/
+  50u UNBLKGRAD
+
+  4u pl3:f3
+  (pwn ph26):f3
+
+  2u
+  p16:gp1
+  d16
+
+/**************************/
+/* This is the real start */
+/**************************/
+  10u fq=cnst1(bf ppm):f1
+
+  (pwh ph1):f1
+
+  "DELTA=min(d12, d13)"
+  DELTA pl18:f1 pl36:f3
+
+3 (center (pw_dip*3.556 ph11):f1 (pw_dip*3.556 ph11):f3)
+  (center (pw_dip*4.556 ph12):f1 (pw_dip*4.556 ph12):f3)
+  (center (pw_dip*3.222 ph11):f1 (pw_dip*3.222 ph11):f3)
+  (center (pw_dip*3.167 ph12):f1 (pw_dip*3.167 ph12):f3)
+  (center (pw_dip*0.333 ph11):f1 (pw_dip*0.333 ph11):f3)
+  (center (pw_dip*2.722 ph12):f1 (pw_dip*2.722 ph12):f3)
+  (center (pw_dip*4.167 ph11):f1 (pw_dip*4.167 ph11):f3)
+  (center (pw_dip*2.944 ph12):f1 (pw_dip*2.944 ph12 ipp12):f3)
+  (center (pw_dip*4.111 ph11):f1 (pw_dip*4.111 ph11 ipp11):f3)
+  lo to 3 times l6
+
+  DELTA pl1:f1 pl3:f3
+  (lalign (pwh ph2):f1 (pwn ph27):f3)
+
+  2u
+  p16:gp2
+  d16
+
+/***************************/
+/*   15N labeling period   */
+/***************************/
+  "t1_max = (ni-1)*in0*2 + in0 + 2u"
+  "DELTA = larger(t1_max-d0*2.0, TAU2)"
+
+  10u fq=0(sfo hz):f1
+  4u pl19:f1
+
+  (pwh_cpd ph27):f1
+  (2u cpds1 ph26):f1
+
+  DELTA
+
+  (pwn ph3):f3
+
+#ifdef c_flg
+  if "d0 - pwc_ad*0.5 > 0.2u" {
+    "DELTA = d0 - pwc_ad*0.5"
+    DELTA
+    (pwc_ad:sp13 ph26):f2
+    DELTA
+  }
+  else {
+    d0
+    d0
+  }
+#else
+  d0
+  d0
+#endif /*c_flg*/
+
+  2u do:f1
+  (pwh_cpd ph27):f1
+  4u pl1:f1
+
+  2u
+  p19:gp3
+  d16
+
+  DELTA3
+
+#ifdef N_sel
+  (center (pwh ph27 pwh*2.0 ph26 pwh ph27):f1 (pwn_sl:sp32 ph26):f3)
+#else
+  (center (pwh ph27 pwh*2.0 ph26 pwh ph27):f1 (pwn*2.0 ph26):f3)
+#endif
+
+  2u
+  p19:gp3
+  d16
+
+  4u pl3:f3
+  DELTA4
+
+  (pwn ph4):f3
+
+  2u
+  p16:gp4
+  d16
+
+  /* shaped pulse */
+  4u
+  (pw_sl:sp11 ph28):f1
+  /* shaped pulse */
+  4u pl1:f1
+
+  (pwh ph26)
+
+  2u
+  p29:gp5
+  d16
+
+  DELTA5
+
+#ifdef wgate2_flg
+  (center
+  (pwh*0.231 ph27 d19*2.0 pwh*0.692 ph27 d19*2.0 pwh*1.462 ph27 d19*2.0 pwh*1.462 ph29 d19*2.0 pwh*0.692 ph29 d19*2.0 pwh*0.231 ph29):f1
+  (pwn*2.0 ph26):f3)
+#else
+   /* shaped pulse */
+  4u
+  (pw_sl:sp11 ph28):f1
+  4u pl1:f1
+  /* shaped pulse */
+
+  (center (pwh*2.0 ph26):f1 (pwn*2.0 ph26):f3)
+
+   /* shaped pulse */
+  4u
+  (pw_sl:sp1 ph28):f1
+  4u pl1:f1
+  /* shaped pulse */
+#endif
+
+  2u
+  p29:gp5
+  d16
+
+  DELTA6
+
+  4u BLKGRAD
+  4u pl16:f3
+
+/********************************************/
+/*   Test how much water left               */
+/*   set zgoptn -Dwater and                 */
+/*   use small value of rg                  */
+/*   set <10 deg flip angle for tap pulse   */
+/********************************************/
+#ifdef water
+  if "nsdone == 0" {
+    DELTA11
+
+    50u UNBLKGRAD
+
+    2u
+    p16:gp1
+    d16
+
+    4u BLKGRAD
+
+    DELTA12
+    (pwh_tap ph26):f1
+  }
+#endif /*water*/
+
+  go=2 ph31 cpds3:f3
+  d11 do:f3 mc #0 to 2
+    F1PH(calph(ph3, +90), caldel(d0, +in0) & calph(ph3, +180) & calph(ph31, +180))
+
+HaltAcqu, 1m
+exit
+
+ph1=1 1 1 1 3 3 3 3
+ph2=3 3 3 3 1 1 1 1
+ph3=1 3
+ph4=0 0 2 2
+ph11=0 2 2 0
+ph12=2 0 0 2
+ph26=0
+ph27=1
+ph28=2
+ph29=3
+ph31=0 2 2 0 2 0 0 2
+
+;d1: relaxation delay; 1-5 * T1
+;d11: delay for disk I/O                             [30 msec]
+;d12: delay for power switching                      [4 usec]
+;d13: very short delay for power switching           [0.2 usec or as short as possible]
+;d16: delay for homospoil/gradient recovery          [200 usec]
+;d25: taua = 0.9/(4J(NH)), ~2.40 ms for J(NH) = 93 Hz
+;d26: taub = 1/(4J(NH)), ~2.68 ms for J(NH) = 93 Hz
+;d61: delay time prior to tap reading pulse
+;tau_hetcp: dipsi2 het-cp transfer duration (28.775*p18*l6 = ~10.8 ms (= 1/J(NH)))
+;pl1: tpwr - power level for 1H pulse pwh (p1)
+;pl2: dhpwr - power level for 13C pulse pwc (p3)
+;pl3: dhpwr2 - power level for 15N pulse pwn (p21)
+;pl9: tsatpwr - power level for water presaturation
+;pl10: tpwrmess - power level for Messerle purge, ~1 Watt
+;pl16: dpwr2 - power level for 15N decoupling cpd3
+;pl19: power level for 1H waltz decoupling during t1
+;sp1: f1 channel - power level for water selective pulse pw_sl (back to z-axis)
+;sp11: f1 channel - power level for water selective pulse pw_sl (away from z-axis)
+;sp13: power level for pwc_ad
+;sp32: power level for pwn_sl
+;spnam1: shape for pw_sl (back to z-axis)
+;spnam11: shape for pw_sl (away from z-axis)
+;spnam13: shape for pwc_ad
+;spnam32: Reburp.1000
+;p1: f1 channel - 90 degree high power pulse (pwh)
+;p8: pwc_ad - 13C adiabatic pulse
+;p11: f1 channel - 90 degree shaped pulse for pw_sl, ~1500 us
+;p16: homospoil/gradient pulse                       [1 msec]
+;p17: pwh_cpd_t1 - 90 degree pulse for 1H cpd-decoupling during t1, ~30 us
+;p18: pw_dip - 90 degree pulse at pl18/pl36 for dipsi-2 het-cp, ~62.5 us
+;p19: gradient pulse 2                               [500 usec]
+;p21: f3 channel - 90 degree high power pulse (pwn)
+;p29: gradient pulse 2                               [800 usec]
+;p32: pwn_sl - 15N Reburp pulse for removing Arg
+;cpdprg1: 1H decoupling sequence applied during t1 [waltz16.p17]
+;cpdprg3: 15N decoupling sequence applied during acquisition
+;pcpd3: f3 channel - 90 degree pulse for 15N decoupling sequence
+;cnst1: center of amide 1H region (offset, in ppm)
+;cnst61: flip angle of tap reading pulse for testing water preservation (in degree)
+;l6: number of dipsi-2 cycles for het-cp
+;inf1: 1/SW(X) = 2*DW(X)
+;in0: 1/(2*SW(x))=DW(X)
+;nd0: 2
+;ns: 2*n
+;FnMODE: States in F1
+
+;for z-only gradients:
+;gpz1: 15%
+;gpz2: 70%
+;gpz3: 50%
+;gpz4: 60%
+;gpz5: 80%
+
+;for xyz-gradientsystem use instead:
+;gpx2: 70%
+;gpy2: 0%
+;gpz2: 70%
+
+;gpx5: 0%
+;gpy5: 80%
+;gpz5: 0%
+
+;use gradient files:
+;gpnam1: SMSQ10.100
+;gpnam2: SMSQ10.100
+;gpnam3: SMSQ10.100
+;gpnam4: SMSQ10.100
+;gpnam5: SMSQ10.100
+
+;zgoptns: Dc_flg, Dfsat, Df1180, Dmess_flg, DN_sel, Dwgate2_flg, Dwater
