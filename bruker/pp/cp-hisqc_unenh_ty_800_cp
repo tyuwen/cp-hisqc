@@ -176,9 +176,9 @@ baseopt_echo
     goto HaltAcqu
   }
 
-  if "tau_hetcp > 15m" {
+  if "tau_hetcp > 20m" {
     2u
-    print "error: dipsi-2 het-cp duration too long; < 15ms !!!"
+    print "error: dipsi-2 het-cp duration too long; < 20ms !!!"
     goto HaltAcqu
   }
 
@@ -449,7 +449,7 @@ ph31=0 2 2 0 2 0 0 2
 ;p18: pw_dip - 90 degree pulse at pl18/pl36 for dipsi-2 het-cp, ~62.5 us
 ;p19: gradient pulse 2                               [500 usec]
 ;p21: f3 channel - 90 degree high power pulse (pwn)
-;p29: gradient pulse 2                               [800 usec]
+;p29: gradient pulse 2                               [650 usec]
 ;p32: pwn_sl - 15N Reburp pulse for removing Arg
 ;cpdprg1: 1H decoupling sequence applied during t1 [waltz16.p17]
 ;cpdprg3: 15N decoupling sequence applied during acquisition
