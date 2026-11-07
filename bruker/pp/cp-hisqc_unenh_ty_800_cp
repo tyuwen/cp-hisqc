@@ -85,7 +85,7 @@ define delay tau_hetcp
 define delay t1_max
 
 define loopcounter ni
-; "ni=td1/2"
+  "ni=td1/2"
 
 #ifdef N_sel
   "DELTA3=taub-2u-pwh_cpd-4u-2u-p19-d16-pwn_sl*0.475-pwn*2.0/PI"
